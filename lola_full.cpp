@@ -12,8 +12,9 @@
 #include <SFML/Network.hpp>
 #include <sys/socket.h>
 #include <string>
+#include <sstream>
 
-#define PORT 50000
+#define PORT 49890
 
 using namespace std;
 
@@ -25,6 +26,7 @@ class LolaLight {
 			touch_pin = touch_pin_;
 			val[0] = 0;
 			val[1] = 0;
+			light_status[0] = light_status[1] = 0;
 			// configure pins
 			wiringPiSetup();
 			softPwmCreate(oled_pin_,0,100);
@@ -112,6 +114,9 @@ class LolaLight {
 			listener.reuse();
 
 			while(1) {
+				val[0] = val[1];
+				light_status[0] = light_status[1];
+
 				// Wait for a connection
 				sf::TcpSocket socket;
 				if (listener.accept(socket) != sf::Socket::Done)
@@ -119,7 +124,7 @@ class LolaLight {
 				std::cout << "Client connected: " << socket.getRemoteAddress() << std::endl;
 
 				// Send a message to the connected client
-				const char out[] = "HTTP/1.1 200 OK\n\r";
+				const char out[] = "HTTP/1.1 200 OK\n\rContent-Type: text/html\n\r";
 				if (socket.send(out, sizeof(out)) != sf::Socket::Done)
 					return 0;
 				std::cout << "Message sent to the client: \"" << out << "\"" << std::endl;
@@ -130,17 +135,60 @@ class LolaLight {
 				if (socket.receive(in, sizeof(in), received) != sf::Socket::Done)
 					return 0;
 				std::cout << "Answer received from the client: \"" << in << "\"" << std::endl;
+
+				// Interpreting answers
 				string req(in);
-				if (req.find("lola/on")>0 && req.find("lola/on")<4000) val[1]=100;
-				if (req.find("lola/off")>0 && req.find("lola/off")<4000) val[1]=0;
+cout << req.find("lola/on") << endl;
+
+				if (req.find("lola/status")>0 && req.find("lola/status")<4000) {
+					//const char c[] = '0'+light_status[1];
+					//std::itoa(light_status[1],c,10);
+					ostringstream status;
+					status << light_status[1];
+					socket.send(status, sizeof(status));
+					cout << "status: " << status << endl;
+				}
+
+				if (req.find("lola/bright_status")>0 && req.find("lola/bright_status")<4000) {
+					//const char c[] = '0'+val[1];
+					//std::itoa(val[1],c,10);
+					ostringstream bright;
+					bright << val[1];
+					socket.send(bright, sizeof(bright));
+					cout << "brightness: " << bright << endl;
+				}
+
+				if (req.find("lola/on")>0 && req.find("lola/on")<4000) {
+					if (val_temp > 0) {
+						val[1]=val_temp;
+					} else {
+						val[1]=100;
+					}
+					light_status[1]=1;
+				}
+
+				if (req.find("lola/off")>0 && req.find("lola/off")<4000) {
+					val_temp = val[1];
+					val[1]=0;
+					light_status[1]=0;
+				}
+
 				if (req.find("lola/set")>0 && req.find("lola/set")<4000) {
 					string temp = req.substr(14,17);
 					cout << "THE VALUE IS: " << temp << endl;
 					val[1] = std::stoi(temp);
 				}
-				setLight(val[1]);
 
-				usleep(3*1000000);
+				cout << "0: " << light_status[0] << " | 1: " << light_status[1] << endl;
+				cout << "val_0: " << val[0] << " | val_1: " << val[1] << endl;
+				if ((light_status[0]==light_status[1] && val[1]==100 && val[0]!=100)) {
+					goto finished;
+				} else {
+					setLight(val[1]);
+				}
+				
+				finished:
+				usleep(50000);
 			}  
 		}
 
@@ -160,9 +208,11 @@ class LolaLight {
 		int touch_pin;
 		int sensitivity = 5;
 		int time_up = 0;
-		std::vector<int> val = std::vector<int>(2);
-		std::vector<int> t_state = std::vector<int>(2);
-	  std::chrono::high_resolution_clock::time_point t_up;
+		vector<int> light_status = vector<int>(2);
+		vector<int> val = vector<int>(2);
+		int val_temp = 0;
+		vector<int> t_state = vector<int>(2);
+	  chrono::high_resolution_clock::time_point t_up;
 
 		class ReuseableListener : public sf::TcpListener {
 			public:
