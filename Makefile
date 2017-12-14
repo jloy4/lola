@@ -1,3 +1,10 @@
-all :
+LOLA=LolaLight
+SENSOR=tsl2561
+
+all:
 	$(info Compiling...)
-	g++ -Wall -g -std=c++11 main.cpp LolaLight.cpp -o lola -lwiringPi -lpthread -lcurl -lz -lsfml-network 
+	g++ -Wall -c $(SENSOR).cpp -o $(SENSOR).o -lm
+	g++ -Wall -g -std=c++11 $(SENSOR).o main.cpp $(LOLA).cpp -o lola -lwiringPi -lpthread -lz -lsfml-network 
+
+clean:
+	rm *.o > /dev/null 2>&1 &
