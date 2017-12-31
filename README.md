@@ -1,5 +1,4 @@
-# lola
-# let there be light
+# LOLA - let there be light
 
 ## Description
 LOLA is an OLED desk lamp capable of adapting its intensity based on the environment. It can be controlled remotly using the Apple Home application or directly with a capacitive sensor on its base.
